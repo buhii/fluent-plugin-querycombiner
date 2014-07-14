@@ -36,7 +36,10 @@ module Fluent
 
       # Create functions for each conditions
       @_cond_funcs = {}
-      @_replace_keys = {}
+      @_replace_keys = {
+        'catch' => {},
+        'dump' => {},
+      }
 
       def get_arguments(eval_str)
         eval_str.scan(/[\"\']?[a-zA-Z][\w\d\.\-\_]*[\"\']?/).uniq.select{|x|
@@ -88,6 +91,10 @@ module Fluent
           end
         }
       }
+
+      if not (@_cond_funcs.has_key?('catch') and @_cond_funcs.has_key?('dump'))
+        raise Fluent::ConfigError, "Must have <catch> and <dump> blocks"
+      end
     end
 
     def has_all_keys?(record, argv)
