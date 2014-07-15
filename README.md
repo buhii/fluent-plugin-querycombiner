@@ -78,7 +78,7 @@ Combined results will be:
 
 ### Replace some field names
 
-If messages has the same fields, these are overwritten in the combination process. You can use `replace` sentence in `<catch>` and `<dump>` blocks to avoid overwrite such fields.
+If messages has the same fields, these are overwritten in the combination process. You can use `replace` sentence in `<catch>` and `<dump>` blocks to avoid overwriting such fields.
 
 For example, you have some event messages like:
 
@@ -113,7 +113,6 @@ You can keep `time` fields which defined both `event-start` and `event-finish` b
   <catch>
     condition     status == 'event-start'
     replace       time => time_start
-
   </catch>
 
   <dump>
@@ -133,6 +132,15 @@ Combined results will be:
   "time_start":   "2001-02-03T04:05:06Z",
   "time_finish":  "2001-02-03T04:15:11Z"
 }
+```
+
+You can also replace multiple fields joined by comma(`,`):
+
+```
+<catch>
+  condition     status == 'event-start'
+  replace       time => time_start, condition => condition_start
+</catch>
 ```
 
 ### \<release\> block

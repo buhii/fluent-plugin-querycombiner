@@ -137,6 +137,36 @@ class QueryCombinerOutputTest < Test::Unit::TestCase
                    "time_finish"=>"2001-02-03T04:15:11Z"}
   end
 
+  def test_readme_sample_replace_multiple_fields
+    d = create_driver %[
+      query_identify  event_id
+      query_ttl       3600   # time to live[sec]
+      buffer_size     1000   # queries
+
+      <catch>
+        condition     status == 'event-start'
+        replace       time => time_start, condition => condition_start
+      </catch>
+
+      <dump>
+        condition     status == 'event-finish'
+        replace       time => time_finish, condition => condition_end
+      </dump>
+    ]
+    time = Time.now.to_i
+    d.emit({"event_id"=>"01234567", "status"=>"event-start", "time"=>"2001-02-03T04:05:06Z", "condition"=>"bad"}, time)
+    d.emit({"event_id"=>"01234567", "status"=>"event-finish", "time"=>"2001-02-03T04:15:11Z", "condition"=>"excellent"}, time)
+    d.run
+    assert_equal d.emits.length, 1
+    assert_equal d.emits[0][2], {
+                   "event_id"=>"01234567",
+                   "status"=>"event-finish",
+                   "time_start"=>"2001-02-03T04:05:06Z",
+                   "condition_start"=>"bad",
+                   "time_finish"=>"2001-02-03T04:15:11Z",
+                   "condition_end"=>"excellent"}
+  end
+
   def test_readme_sample_release
     d = create_driver %[
       query_identify  event_id
