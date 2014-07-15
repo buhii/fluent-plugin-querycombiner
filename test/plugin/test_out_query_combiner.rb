@@ -83,6 +83,122 @@ class QueryCombinerOutputTest < Test::Unit::TestCase
 
   end
 
+  def test_readme_sample_basic_example
+    d = create_driver %[
+      query_identify  event_id
+      query_ttl       3600   # time to live[sec]
+      buffer_size     1000   # queries
+
+      <catch>
+        condition     status == 'event-start'
+      </catch>
+
+      <dump>
+        condition     status == 'event-finish'
+      </dump>
+    ]
+    time = Time.now.to_i
+    d.emit({"event_id"=>"01234567", "status"=>"event-start", "started_at"=>"2001-02-03T04:05:06Z"}, time)
+    d.emit({"event_id"=>"01234567", "status"=>"event-finish", "finished_at"=>"2001-02-03T04:05:06Z"}, time)
+    d.run
+    assert_equal d.emits.length, 1
+    assert_equal d.emits[0][2], {
+                   "event_id"=>"01234567",
+                   "status"=>"event-finish",
+                   "started_at"=>"2001-02-03T04:05:06Z",
+                   "finished_at"=>"2001-02-03T04:05:06Z"}
+  end
+
+  def test_readme_sample_replace_sentence
+    d = create_driver %[
+      query_identify  event_id
+      query_ttl       3600   # time to live[sec]
+      buffer_size     1000   # queries
+
+      <catch>
+        condition     status == 'event-start'
+        replace       time => time_start
+      </catch>
+
+      <dump>
+        condition     status == 'event-finish'
+        replace       time => time_finish
+      </dump>
+    ]
+    time = Time.now.to_i
+    d.emit({"event_id"=>"01234567", "status"=>"event-start", "time"=>"2001-02-03T04:05:06Z"}, time)
+    d.emit({"event_id"=>"01234567", "status"=>"event-finish", "time"=>"2001-02-03T04:15:11Z"}, time)
+    d.run
+    assert_equal d.emits.length, 1
+    assert_equal d.emits[0][2], {
+                   "event_id"=>"01234567",
+                   "status"=>"event-finish",
+                   "time_start"=>"2001-02-03T04:05:06Z",
+                   "time_finish"=>"2001-02-03T04:15:11Z"}
+  end
+
+  def test_readme_sample_release
+    d = create_driver %[
+      query_identify  event_id
+      query_ttl       3600   # time to live[sec]
+      buffer_size     1000   # queries
+
+      <catch>
+        condition     status == 'event-start'
+      </catch>
+
+      <dump>
+        condition     status == 'event-finish'
+      </dump>
+
+      <release>
+        condition     status == 'event-error'
+      </release>
+    ]
+    time = Time.now.to_i
+    d.emit({"event_id"=>"01234567", "status"=>"event-start", "time"=>"2001-02-03T04:05:06Z"}, time)
+    d.emit({"event_id"=>"01234567", "status"=>"event-error", "time"=>"2001-02-03T04:05:06Z"}, time)
+    d.run
+    assert_equal d.emits.length, 0
+  end
+
+  def test_readme_sample_prolong
+    d = create_driver %[
+      query_identify  event_id
+      query_ttl       3600   # time to live[sec]
+      buffer_size     1000   # queries
+
+      <catch>
+        condition     status == 'event-start'
+      </catch>
+
+      <dump>
+        condition     status == 'event-finish'
+      </dump>
+
+      <prolong>
+        condition     status == 'event-continue'
+      </prolong>
+
+      <release>
+        condition     status == 'event-error'
+      </release>
+    ]
+    time = Time.now.to_i
+    d.emit({"event_id"=>"01234567", "status"=>"event-start", "time"=>"2001-02-03T04:05:06Z"}, time)
+    d.emit({"event_id"=>"01234567", "status"=>"event-continue", "time"=>"2001-02-03T04:05:07Z"}, time)
+    d.emit({"event_id"=>"01234567", "status"=>"event-continue", "time"=>"2001-02-03T04:05:08Z"}, time)
+    d.emit({"event_id"=>"01234567", "status"=>"event-continue", "time"=>"2001-02-03T04:05:09Z"}, time)
+    d.emit({"event_id"=>"01234567", "status"=>"event-continue", "time"=>"2001-02-03T04:05:10Z"}, time)
+    d.emit({"event_id"=>"01234567", "status"=>"event-finish", "time"=>"2001-02-03T04:05:11Z"}, time)
+    d.run
+    assert_equal d.emits.length, 1
+    assert_equal d.emits[0][2], {
+                   "event_id"=>"01234567",
+                   "status"=>"event-finish",
+                   "time"=>"2001-02-03T04:05:11Z"}
+  end
+
   def test_simple_events
     d = create_driver CONFIG
     time = Time.now.to_i
@@ -154,7 +270,7 @@ class QueryCombinerOutputTest < Test::Unit::TestCase
 
   def test_multi_query_identifier
     d = create_driver %[
-      buffer_size     100
+      buffer_size     1001
       query_identify  aid, bid, cid
 
       <catch>
@@ -199,6 +315,14 @@ class QueryCombinerOutputTest < Test::Unit::TestCase
                    }
     }
     assert_equal d.emits.size, finish_list.size
+  end
+
+  def test_buffer_size
 
   end
+
+  def test_query_ttl
+
+  end
+
 end

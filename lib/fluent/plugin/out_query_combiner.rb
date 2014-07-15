@@ -12,7 +12,7 @@ module Fluent
     config_param :redis_key_prefix, :string, :default => 'query_combiner:'
     config_param :query_identify, :string, :default => 'session-id'
     config_param :query_ttl, :integer, :default => 1800
-    config_param :buffer_size, :integer, :default => 100
+    config_param :buffer_size, :integer, :default => 1000
 
     config_param :flush_interval, :integer, :default => 60
     config_param :remove_interval, :integer, :default => 10
