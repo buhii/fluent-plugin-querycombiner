@@ -174,7 +174,7 @@ You cannot use `replace` sentence in the `<release>` block.
 
 ### \<prolong\> block
 
-Suppose your `query_ttl` is **600** (10 minutes) and almost events are finished within **10 minutes**. But occasionally very-long events occur which finish about **1 hours**. These very-long events send `status: 'event-continue'` messages every 5 minutes for keep-alive.
+Suppose your `query_ttl` is **600** (10 minutes) and almost events are finished within **10 minutes**. But occasionally very-long events occur which finish about **1 hour**. These very-long events send `status: 'event-continue'` messages every 5 minutes for keep-alive.
 
 In this case you can use `<prolong>` block to reset expired time.
 
@@ -201,7 +201,7 @@ The basic information for connecting to Redis. By default it's **redis://127.0.0
 How many times should the plugin retry when performing a redis operation before raising a error.
 By default it's 3.
 
-### querl_ttl
+### query_ttl
 The inactive expire time in seconds. By default it's **1800** (30 minutes).
 
 ### buffer_size
