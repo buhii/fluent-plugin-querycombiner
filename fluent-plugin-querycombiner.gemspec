@@ -3,7 +3,7 @@ $:.push File.expand_path("../lib", __FILE__)
 
 Gem::Specification.new do |spec|
   spec.name          = "fluent-plugin-querycombiner"
-  spec.version       = "0.0.1"
+  spec.version       = "0.0.2"
   spec.authors       = ["Takahiro Kamatani"]
   spec.email         = ["buhii314@gmail.com"]
   spec.description   = %q{Fluent plugin to combine multiple queries.}

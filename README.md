@@ -188,6 +188,34 @@ You cannot use `replace` sentence in the `<prolong>` block.
 
 Also you cannot combine messages which defined `<prolong>` blocks.
 
+### Record time of the event
+
+If you combine events, time of the events will be lost except defined in `<dump>` block.
+
+If you want record time of the event, you can define `time` sentence in `<catch>` and `<dump>` blocks.
+
+For example, if you configure your fluentd configuration like below,
+
+```
+  <catch>
+    condition     status == 'event-start'
+    replace       time => time_start, condition => condition_start
+    time          time-catch
+  </catch>
+```
+
+you can record time in `time-catch` field in the result.
+
+```
+{
+  "event_id":     "01234567",
+  "status":       "event-finish",
+  "time-catch":   1414715801.112015,
+}
+```
+
+You can set time formats by `time_format` configuration.
+
 
 ## Configuration
 
@@ -210,7 +238,6 @@ The max queries to store in redis. By default it's **1000**.
 ### remove_interval
 The interval time to delete expired or overflowed queries which configured by `query_ttl` and `buffer_size`. By default it's 10 [sec].
 
-
 ### redis_key_prefix
 
 The key prefix for data stored in Redis. By default it's `query_combiner:`.
@@ -220,11 +247,19 @@ The key prefix for data stored in Redis. By default it's `query_combiner:`.
 Indicates how to extract the query identity from event record.
 It can be set as a single field name or multiple field names join by comma (`,`).
 
+### time_format
+
+The time format for recording time of the events. Default is `$time` which holds event time. You can also use [Ruby's Time module](http://www.ruby-doc.org/core/Time.html).
+If you want write ISO8601 format (e.g. `2014-10-31T09:32:57+09:00`), you can configure like below.
+
+```
+time_format     Time.at($time).iso8601
+```
+
 
 ## TODO
 
 - Multi-query combination
-- Support hyphen `-` and dollar `$` contained field names
 
 
 ## Copyright

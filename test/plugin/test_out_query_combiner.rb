@@ -81,6 +81,27 @@ class QueryCombinerOutputTest < Test::Unit::TestCase
       ]
     }
 
+    # `time` configuration only allowed in <catch> and <dump>
+    assert_raise(Fluent::ConfigError) {
+      d = create_driver %[
+        query_identify   event_id
+        <catch>
+          condition   status == 'start'
+          replace     hoge => hoge_start
+          time        time_catch
+        </catch>
+        <release>
+          condition   status == 'error'
+          time        time_release
+        </release>
+        <dump>
+          condition   status == 'finish'
+          replace     hoge => hoge_finish
+          time        time_dump
+        </dump>
+      ]
+    }
+
   end
 
   def test_readme_sample_basic_example
@@ -345,6 +366,48 @@ class QueryCombinerOutputTest < Test::Unit::TestCase
                    }
     }
     assert_equal d.emits.size, finish_list.size
+  end
+
+  def test_time_format_and_configuration
+    d = create_driver %[
+      query_identify  event_id
+      query_ttl       3600   # time to live[sec]
+      buffer_size     1000   # queries
+      time_format     Time.at($time).iso8601(3)
+
+      <catch>
+        condition     status == 'event-start'
+        time          time-catch
+      </catch>
+
+      <dump>
+        condition     status == 'event-finish'
+        time          time-dump
+      </dump>
+
+      <prolong>
+        condition     status == 'event-continue'
+      </prolong>
+
+      <release>
+        condition     status == 'event-error'
+      </release>
+    ]
+    def emit(d, status)
+      d.emit({"event_id"=>"01234567", "status"=>status}, Time.now.to_f)
+    end
+
+    emit(d, "event-start")
+    emit(d, "event-continue")
+    emit(d, "event-continue")
+    emit(d, "event-continue")
+    emit(d, "event-finish")
+    d.run
+
+    assert_equal d.emits.length, 1
+    assert_not_nil d.emits[0][2]['time-catch']
+    assert_not_nil d.emits[0][2]['time-dump']
+
   end
 
   def test_buffer_size

@@ -14,6 +14,8 @@ module Fluent
     config_param :query_ttl, :integer, :default => 1800
     config_param :buffer_size, :integer, :default => 1000
 
+    config_param :time_format, :string, :default => '$time'
+
     config_param :flush_interval, :integer, :default => 60
     config_param :remove_interval, :integer, :default => 10
     config_param :tag, :string, :default => "query_combiner"
@@ -24,6 +26,7 @@ module Fluent
       require 'msgpack'
       require 'json'
       require 'rubygems'
+      require 'time'
     end
 
     def configure(conf)
@@ -33,6 +36,19 @@ module Fluent
       @db_number = conf.has_key?('db_number') ? conf['db_number'].to_i : nil
 
       @query_identify = @query_identify.split(',').map { |qid| qid.strip }
+
+      # functions for time format
+      def create_time_formatter(expr)
+        begin
+          f = eval('lambda {|__arg_time__| ' + expr.gsub("$time", "__arg_time__") + '}')
+          return f
+        rescue SyntaxError
+          raise Fluent::ConfigError, "SyntaxError at time_format `#{expr}`"
+        end
+      end
+      @_time_formatter = create_time_formatter(@time_format)
+
+      @_time_keys = {}
 
       # Create functions for each conditions
       @_cond_funcs = {}
@@ -88,6 +104,16 @@ module Fluent
             else
               raise Fluent::ConfigError, "`replace` configuration in #{element.name}: only allowed in `catch` and `dump`"
             end
+
+          elsif var == 'time'
+            if %w{catch dump}.include? element.name
+              @_time_keys[element.name] = expr
+            else
+              raise Fluent::ConfigError, "`time` configuration in #{element.name}: only allowed in `catch` and `dump`"
+            end
+
+          else
+            raise Fluent::ConfigError, "Unknown configuration `#{var}` in #{element.name}"
           end
         }
       }
@@ -164,6 +190,11 @@ module Fluent
         record[after] = record[before]
         record.delete(before)
       }
+      # add time key if configured
+      if @_time_keys.has_key? 'catch'
+        record[@_time_keys['catch']] = @_time_formatter.call(time)
+      end
+
       # save record
       tryOnRedis 'set',    @redis_key_prefix + qid, JSON.dump(record)
       # update qid's timestamp
@@ -179,13 +210,18 @@ module Fluent
       end
     end
 
-    def do_dump(qid, record)
+    def do_dump(qid, record, time)
       if (tryOnRedis 'exists', @redis_key_prefix + qid)
         # replace record keys
         @_replace_keys['dump'].each_pair { |before, after|
           record[after] = record[before]
           record.delete(before)
         }
+
+        # add time key if configured
+        if @_time_keys.has_key? 'dump'
+          record[@_time_keys['dump']] = @_time_formatter.call(time)
+        end
 
         # emit
         catched_record = JSON.load(tryOnRedis('get', @redis_key_prefix + qid))
@@ -229,7 +265,7 @@ module Fluent
                 when "prolong"
                   do_prolong(qid, time)
                 when "dump"
-                  do_dump(qid, record)
+                  do_dump(qid, record, time)
                 when "release"
                   do_release(qid)
                 end
