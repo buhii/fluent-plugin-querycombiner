@@ -31,6 +31,19 @@ class QueryCombinerOutputTest < Test::Unit::TestCase
     @redis.quit
   end
 
+  def tryOnRedis(method, *args)
+    tries = 0
+    begin
+      @redis.send(method, *args) if @redis.respond_to? method
+    rescue Redis::CommandError => e
+      tries += 1
+      # retry 3 times
+      retry if tries <= @redis_retry
+      $log.warn %Q[redis command retry failed : #{method}(#{args.join(', ')})]
+      raise e.message
+    end
+  end
+
   def create_driver(conf, tag='test')
     Fluent::Test::BufferedOutputTestDriver.new(Fluent::QueryCombinerOutput, tag).configure(conf)
   end
@@ -410,12 +423,52 @@ class QueryCombinerOutputTest < Test::Unit::TestCase
 
   end
 
+  def test_query_ttl
+
+  end
+
   def test_buffer_size
 
   end
 
-  def test_query_ttl
+  def test_continuous_dump
+    d = create_driver %[
+      redis_key_prefix test_query_combiner:
 
+      query_identify  event_id
+      query_ttl       5   # time to live[sec]
+      buffer_size     1000   # queries
+      continuous_dump true
+      remove_interval 5
+
+      <catch>
+        condition     status == 'event-start'
+      </catch>
+
+      <dump>
+        condition     status == 'event-finish'
+      </dump>
+
+      <release>
+        condition     status == 'event-error'
+      </release>
+    ]
+    assert_equal false, (tryOnRedis 'exists', "test_query_combiner:id000")
+
+    d.emit({"event_id"=>"id000", "status"=>"event-start",  "key_init"=>"init"}, Time.now.to_f)
+    d.emit({"event_id"=>"id000", "status"=>"event-finish"}, Time.now.to_f)
+    d.emit({"event_id"=>"id000", "status"=>"event-finish", "key_fin1"=>"fin1"}, Time.now.to_f)
+    d.emit({"event_id"=>"id000", "status"=>"event-finish", "key_fin2"=>"fin2"}, Time.now.to_f)
+    d.run
+
+    assert_equal d.emits.length, 3
+    assert_equal d.emits[0][2], {"event_id"=>"id000", "status"=>"event-finish", "key_init"=>"init"}
+    assert_equal d.emits[1][2], {"event_id"=>"id000", "status"=>"event-finish", "key_init"=>"init", "key_fin1"=>"fin1"}
+    assert_equal d.emits[2][2], {"event_id"=>"id000", "status"=>"event-finish", "key_init"=>"init", "key_fin2"=>"fin2"}
+
+    assert_equal true, (tryOnRedis 'exists', "test_query_combiner:id000")
+    sleep 6
+    assert_equal false, (tryOnRedis 'exists', "test_query_combiner:id000")
   end
 
 end

@@ -235,8 +235,13 @@ The inactive expire time in seconds. By default it's **1800** (30 minutes).
 ### buffer_size
 The max queries to store in redis. By default it's **1000**.
 
+### continuous_dump
+If you set this variable **true**, your pre-combined queries will not remove even after combined by `<dump>` block. Your pre-combined queries will remove only after their expire times set by `query_ttl`. Also your pre-combined queries will be prolonged if dumped.
+
+By default it's **false**.
+
 ### remove_interval
-The interval time to delete expired or overflowed queries which configured by `query_ttl` and `buffer_size`. By default it's 10 [sec].
+The interval time to delete expired or overflowed queries which configured by `query_ttl` and `buffer_size`. By default it's `10` [sec].
 
 ### redis_key_prefix
 

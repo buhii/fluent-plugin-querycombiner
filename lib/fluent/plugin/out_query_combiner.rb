@@ -13,6 +13,7 @@ module Fluent
     config_param :query_identify, :string, :default => 'session-id'
     config_param :query_ttl, :integer, :default => 1800
     config_param :buffer_size, :integer, :default => 1000
+    config_param :continuous_dump, :bool, :default => false
 
     config_param :time_format, :string, :default => '$time'
 
@@ -229,7 +230,14 @@ module Fluent
         Fluent::Engine.emit @tag, Fluent::Engine.now, combined_record
 
         # remove qid
-        do_release(qid)
+        if not @continuous_dump
+          do_release(qid)
+        else
+          # continuous_dump will prolong qid's TTL.
+          tryOnRedis 'zadd', @redis_key_prefix, time, qid
+          tryOnRedis 'expire', @redis_key_prefix + qid, @query_ttl
+        end
+
       end
     end
 
